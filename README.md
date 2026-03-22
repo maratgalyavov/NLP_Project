@@ -171,6 +171,14 @@ Behavior details:
 - Device auto-detection is in [`LLMService._resolve_device()`](app/services/llm_service.py:30) and prefers MPS on macOS.
 - If local model load/generation fails, app falls back to mock output in [`LLMService._generate()`](app/services/llm_service.py:196).
 
+## Vacancy Parser Integration
+
+The system now includes a vacancy parser for HH.ru that:
+- Runs daily via cron in Docker container
+- Stores vacancies in SQLite with deduplication
+- Uses `app/services/parser_service.py` for parsing logic
+- Can be triggered manually via API
+
 ## LLM structured output contracts
 
 LLM responses are validated against internal JSON contracts in [`LLMService._validate_contract()`](app/services/llm_service.py:129):

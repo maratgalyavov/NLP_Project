@@ -23,7 +23,8 @@ class Settings:
     )
     sqlite_path: str = getenv("SQLITE_PATH", "data/app.db")
     faiss_index_path: str = getenv("FAISS_INDEX_PATH", "data/faiss/vacancies.index")
-    vacancies_path: str = getenv("VACANCIES_PATH", "data/mock_vacancies.json")
+    # vacancies_path: str = getenv("VACANCIES_PATH", "data/mock_vacancies.json")
+    vacancies_path: str = getenv("VACANCIES_PATH", "data/app.db")
 
     use_mock_llm: bool = getenv("USE_MOCK_LLM", "true").lower() == "true"
     use_mock_embeddings: bool = getenv("USE_MOCK_EMBEDDINGS", "true").lower() == "true"

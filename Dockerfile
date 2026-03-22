@@ -12,5 +12,6 @@ COPY . /app
 
 EXPOSE 8000
 
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["sh", "-c", "crontab -l | { cat; echo '0 0 * * * python -m app.services.parser_service.ParserService /app/data/app.db daily_update';  | crontab &&
+        python -m uvicorn app.main:app --host 0.0.0.0 --port 8000"]
 
