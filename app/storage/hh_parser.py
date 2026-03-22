@@ -4,16 +4,13 @@ Parse IT vacancies from hh.ru HTML (search + vacancy pages).
 
 from __future__ import annotations
 
-import argparse
-import json
 import re
-import sys
 import time
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, datetime
 from html import unescape
 from typing import Any
-from urllib.parse import parse_qs, urljoin, urlparse
+from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
@@ -39,6 +36,9 @@ HEADERS = {
     "Accept-Language": "ru-RU,ru;q=0.9,en;q=0.5",
 }
 
+DEFAULT_POS_LEFT = 13
+DEFAULT_POS_RIGHT = 31
+
 
 @dataclass
 class ListingItem:
@@ -55,28 +55,11 @@ def _session() -> requests.Session:
     return s
 
 
-def _extract_vacancy_id_from_card(card: BeautifulSoup) -> str | None:
-    for tag in card.find_all(True, id=True):
-        tid = tag.get("id", "")
-        if tid.isdigit():
-            return tid
-    resp = card.select_one('a[data-qa="vacancy-serp__vacancy_response"]')
-    if resp and resp.get("href"):
-        q = parse_qs(urlparse(resp["href"]).query)
-        vid = q.get("vacancyId", [None])[0]
-        if vid and vid.isdigit():
-            return vid
-    return None
-
-
-def _normalize_vacancy_url(href: str | None, vacancy_id: str) -> str:
+def _normalize_vacancy_url(href: str | None) -> str:
     if href:
         if "/vacancy/" in href:
             return href if href.startswith("http") else urljoin(BASE, href)
-        if "adsrv.hh.ru" in href or "click" in (href or ""):
-            return f"{BASE}/vacancy/{vacancy_id}"
-    return f"{BASE}/vacancy/{vacancy_id}"
-
+    return ''
 
 def parse_search_page(html: str) -> list[ListingItem]:
     soup = BeautifulSoup(html, "lxml")
@@ -86,16 +69,24 @@ def parse_search_page(html: str) -> list[ListingItem]:
         cards = soup.select('[data-qa^="vacancy-serp__vacancy"]')
 
     for card in cards:
-        vid = _extract_vacancy_id_from_card(card)
-        if not vid:
-            continue
-
         title_el = card.select_one('[data-qa="serp-item__title-text"]')
         title = title_el.get_text(strip=True) if title_el else ""
 
         link_el = card.select_one('a[data-qa="serp-item__title"]')
         href = link_el.get("href") if link_el else None
-        url = _normalize_vacancy_url(href, vid)
+        if href is None:
+            continue
+        url = _normalize_vacancy_url(href)
+        pos_left = url.find('/vacancy/')
+        pos_right = url.find('?')
+        if pos_left == -1:
+            pos_left = DEFAULT_POS_LEFT
+        if pos_right == -1:
+            pos_right = DEFAULT_POS_RIGHT
+        pos_left += 9
+        vid = url[pos_left:pos_right]
+        if not vid.isdigit():
+            continue
 
         company_el = card.select_one('[data-qa="vacancy-serp__vacancy-employer-text"]')
         company = company_el.get_text(strip=True) if company_el else ""
@@ -126,7 +117,7 @@ def _digits_from_ru_salary(text: str) -> list[int]:
     for p in parts:
         try:
             n = int(re.sub(r"\s+", "", p))
-        except Exception as e:
+        except Exception:
             continue
         if n > 1000000:
             continue
@@ -282,11 +273,6 @@ def fetch_vacancy(sess: requests.Session, vacancy_id: str) -> str:
     return r.text
 
 
-def vacancy_id_from_url(url: str) -> str | None:
-    m = re.search(r"/vacancy/(\d+)", url)
-    return m.group(1) if m else None
-
-
 def _parse_iso_date(s: str | None) -> date | None:
     if not s:
         return None
@@ -336,7 +322,7 @@ def run(
         listing_order = listing_order[: max_vacancies]
 
     results: list[dict[str, Any]] = []
-    for idx, item in enumerate(listing_order, start=1):
+    for _idx, item in enumerate(listing_order, start=1):
         try:
             vhtml = fetch_vacancy(sess, item.vacancy_id)
         except requests.HTTPError:
@@ -352,7 +338,7 @@ def run(
             elif posted < posted_since:
                 continue
 
-        results.append({"id": f"vac_{idx:03d}", **detail})
+        results.append({"id": f"vac_{int(item.vacancy_id):03d}", **detail})
 
     results.sort(
         key=lambda r: (_parse_iso_date(r.get("posted_date")) or date.min),
@@ -362,174 +348,3 @@ def run(
         row["id"] = f"vac_{i:03d}"
 
     return results
-
-
-def vacancy_ids_from_rows(rows: list[Any]) -> set[str]:
-    ids: set[str] = set()
-    for row in rows:
-        if not isinstance(row, dict):
-            continue
-        u = row.get("url")
-        if isinstance(u, str):
-            vid = vacancy_id_from_url(u)
-            if vid:
-                ids.add(vid)
-    return ids
-
-
-def merge_append(
-    new_rows: list[dict[str, Any]],
-    existing_path: str,
-) -> list[dict[str, Any]]:
-    try:
-        with open(existing_path, encoding="utf-8") as f:
-            existing = json.load(f)
-    except FileNotFoundError:
-        existing = []
-    if not isinstance(existing, list):
-        existing = []
-    known = vacancy_ids_from_rows(existing)
-    fresh: list[dict[str, Any]] = []
-    for row in new_rows:
-        u = row.get("url")
-        if not isinstance(u, str):
-            continue
-        vid = vacancy_id_from_url(u)
-        if vid and vid not in known:
-            fresh.append(row)
-            known.add(vid)
-    combined = list(existing) + fresh
-    combined.sort(
-        key=lambda r: (_parse_iso_date(r.get("posted_date")) or date.min),
-        reverse=True,
-    )
-    for i, row in enumerate(combined, start=1):
-        row["id"] = f"vac_{i:03d}"
-    return combined
-
-
-def main() -> None:
-    p = argparse.ArgumentParser(description="Parse hh.ru IT vacancies (HTML only, no API).")
-    p.add_argument(
-        "--queries",
-        "-q",
-        default=",".join(DEFAULT_QUERIES),
-        help="Comma-separated search text queries (default: IT-related bundle).",
-    )
-    p.add_argument(
-        "--area",
-        "-a",
-        default="1",
-        help="hh.ru area id (1=Moscow, 113=Russia, 2=SPb). Default: 1.",
-    )
-    p.add_argument(
-        "--pages",
-        "-p",
-        type=int,
-        default=1,
-        help="Pages per query (0-based page index). Default: 1.",
-    )
-    p.add_argument(
-        "--delay",
-        type=float,
-        default=0.6,
-        help="Seconds between HTTP requests. Default: 0.6.",
-    )
-    p.add_argument(
-        "--max",
-        type=int,
-        default=None,
-        help="Max vacancies to scrape (after deduplication).",
-    )
-    p.add_argument(
-        "--order-by",
-        default="publication_time",
-        help='Сортировка выдачи на hh.ru (по умолчанию publication_time — сначала свежие). Пустая строка — без параметра.',
-    )
-    p.add_argument(
-        "--search-period",
-        type=int,
-        default=None,
-        metavar="DAYS",
-        help="Показывать вакансии не старше N дней (параметр search_period на сайте). Например 1 — за последние сутки.",
-    )
-    p.add_argument(
-        "--since",
-        metavar="YYYY-MM-DD",
-        default=None,
-        help="Оставить только вакансии с posted_date не раньше этой даты (после загрузки страницы вакансии).",
-    )
-    p.add_argument(
-        "--recent-days",
-        type=int,
-        default=None,
-        metavar="N",
-        help="Удобный вариант --since: последние N календарных дней включая сегодня (N=1 — только сегодня).",
-    )
-    p.add_argument(
-        "--include-unknown-date",
-        action="store_true",
-        help="При фильтре по дате не отбрасывать вакансии без posted_date (по умолчанию отбрасываются).",
-    )
-    p.add_argument(
-        "--merge-with",
-        metavar="FILE",
-        default=None,
-        help="Дописать только новые id вакансий к существующему JSON (дедупликация по URL).",
-    )
-    p.add_argument(
-        "--output",
-        "-o",
-        default=None,
-        help="Write JSON to file instead of stdout.",
-    )
-    args = p.parse_args()
-    queries = [x.strip() for x in args.queries.split(",") if x.strip()]
-
-    posted_since: date | None = None
-    if args.since:
-        try:
-            posted_since = datetime.strptime(args.since.strip(), "%Y-%m-%d").date()
-        except ValueError:
-            print("Invalid --since, expected YYYY-MM-DD", file=sys.stderr)
-            sys.exit(2)
-    elif args.recent_days is not None:
-        if args.recent_days < 1:
-            print("--recent-days must be >= 1", file=sys.stderr)
-            sys.exit(2)
-        posted_since = date.today() - timedelta(days=args.recent_days - 1)
-
-    order_by = (args.order_by or "").strip() or None
-
-    try:
-        data = run(
-            queries=queries,
-            area=args.area,
-            pages_per_query=args.pages,
-            delay=args.delay,
-            max_vacancies=args.max,
-            order_by=order_by,
-            search_period=args.search_period,
-            posted_since=posted_since,
-            skip_if_no_posted_date=bool(posted_since) and not args.include_unknown_date,
-        )
-    except requests.RequestException as e:
-        print(f"Network error: {e}", file=sys.stderr)
-        sys.exit(1)
-
-    if args.merge_with:
-        data = merge_append(data, args.merge_with)
-
-    text = json.dumps(data, ensure_ascii=False, indent=2)
-    out_path = args.output
-    if args.merge_with and not out_path:
-        out_path = args.merge_with
-    if out_path:
-        with open(out_path, "w", encoding="utf-8") as f:
-            f.write(text)
-    else:
-        print(text)
-
-
-if __name__ == "__main__":
-    main()

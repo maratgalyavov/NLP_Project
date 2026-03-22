@@ -10,15 +10,12 @@ from app.core.config import settings
 from app.core.logging import configure_logging
 from app.observability.metrics import metrics_middleware
 from app.observability.metrics import router as metrics_router
-from app.services.parser_service import ParserService
 from app.storage.db import init_db
 
 
 def create_app() -> FastAPI:
     configure_logging(settings.log_level)
     init_db(settings.sqlite_path)
-    parser = ParserService(settings.sqlite_path)
-    print(parser.run_parser())
 
     app = FastAPI(title=settings.app_name)
     app.middleware("http")(metrics_middleware)

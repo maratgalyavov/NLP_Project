@@ -7,7 +7,7 @@ from app.services.vacancy_service import VacancyService
 
 
 def main() -> None:
-    vacancy_service = VacancyService(settings.vacancies_path)
+    vacancy_service = VacancyService(settings.sqlite_path)
     embedding_service = EmbeddingService()
     matching_service = MatchingService(embedding_service)
 
@@ -19,4 +19,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-
