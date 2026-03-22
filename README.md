@@ -32,6 +32,13 @@ python3 -m pip install -r requirements.txt
 python3 -m pytest -q
 ```
 
+Optional quality checks:
+
+```bash
+python3 -m ruff check .
+python3 -m mypy app
+```
+
 4. Build FAISS index from mock vacancies:
 
 ```bash
@@ -104,6 +111,36 @@ Monitoring stack:
 
 - Current environment uses Python 3.9; code and type hints were adapted for compatibility.
 - For real production-like LLM and embeddings, disable mock flags in [`.env.example`](.env.example) and integrate actual providers in [`app/services/llm_service.py`](app/services/llm_service.py) and [`app/services/embedding_service.py`](app/services/embedding_service.py).
+
+## Testing guide (RU)
+
+Базовый запуск всех тестов:
+
+```bash
+python3 -m pytest -q
+```
+
+Запуск только unit-тестов:
+
+```bash
+python3 -m pytest tests/unit -q
+```
+
+Запуск только интеграционных тестов:
+
+```bash
+python3 -m pytest tests/integration -q
+```
+
+Проверки качества кода перед пушем:
+
+```bash
+python3 -m ruff check .
+python3 -m mypy app
+python3 -m pytest -q
+```
+
+CI запускается через workflow [`CI`](.github/workflows/ci.yml:1) на push/pull request в `main`.
 
 ## Run a small local Qwen on Apple Silicon (MPS)
 
