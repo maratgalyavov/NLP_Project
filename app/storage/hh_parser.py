@@ -338,13 +338,11 @@ def run(
             elif posted < posted_since:
                 continue
 
-        results.append({"id": f"vac_{int(item.vacancy_id):03d}", **detail})
+        results.append({"id": f"vac_{int(item.vacancy_id)}", **detail})
 
     results.sort(
         key=lambda r: (_parse_iso_date(r.get("posted_date")) or date.min),
         reverse=True,
     )
-    for i, row in enumerate(results, start=1):
-        row["id"] = f"vac_{i:03d}"
 
     return results

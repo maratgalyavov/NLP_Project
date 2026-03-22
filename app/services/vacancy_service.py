@@ -24,7 +24,8 @@ class VacancyService:
                 cursor.execute(
                     "INSERT OR IGNORE INTO vacancies "
                     "(vacancy_id, title, company, location, url, description, "
-                    "salary_from, salary_to, posted_date, skills) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "salary_from, salary_to, posted_date, skills, active_flg) " 
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         vac['id'],
                         vac['title'],
@@ -36,6 +37,7 @@ class VacancyService:
                         vac.get('salary_to'),
                         vac['posted_date'],
                         json.dumps(vac.get("skills", []), ensure_ascii=False),
+                        vac['active_flg']
                     )
                 )
             conn.commit()
