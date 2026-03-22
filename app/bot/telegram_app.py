@@ -1,14 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
-
-from dotenv import load_dotenv
-
-# Явный путь: корень репозитория (app/bot/telegram_app.py → три уровня вверх).
-# Иначе load_dotenv() ищет .env только от текущей рабочей директории — токен может не подхватиться.
-_ENV_PATH = Path(__file__).resolve().parent.parent.parent / ".env"
-load_dotenv(_ENV_PATH)
-
 import logging
 
 from telegram.ext import Application, CallbackQueryHandler, CommandHandler, MessageHandler, filters
@@ -19,8 +10,6 @@ from app.bot.handlers_interview import handle_answer
 from app.bot.handlers_interview_callbacks import handle_interview_callback
 from app.bot.handlers_menu import handle_free_text
 from app.bot.handlers_start import handle_start
-
-# Импорт настроек после load_dotenv, чтобы getenv увидел переменные из .env
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)

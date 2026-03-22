@@ -2,6 +2,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from os import getenv
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# До getenv: один раз подхватываем .env из корня репозитория (не зависит от cwd).
+_REPO_ROOT = Path(__file__).resolve().parent.parent.parent
+load_dotenv(_REPO_ROOT / ".env")
 
 
 @dataclass(frozen=True)

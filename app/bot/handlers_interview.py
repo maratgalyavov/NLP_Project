@@ -5,10 +5,6 @@ from telegram.ext import ContextTypes
 
 from app.api.deps import container
 from app.bot.interview_keyboards import (
-    EDUCATION_CODES,
-    EMPLOYMENT_CODES,
-    FORMAT_CODES,
-    SKILL_CODES,
     education_keyboard,
     education_question_caption,
     employment_keyboard,
