@@ -2,6 +2,12 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from os import getenv
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+# Load .env from project root if present.
+load_dotenv(dotenv_path=Path(".env"), override=False)
 
 
 @dataclass(frozen=True)
@@ -21,11 +27,13 @@ class Settings:
     embedding_model: str = getenv(
         "EMBEDDING_MODEL", "sentence-transformers/paraphrase-multilingual-mpnet-base-v2"
     )
+    embedding_device: str = getenv("EMBEDDING_DEVICE", "auto")
     sqlite_path: str = getenv("SQLITE_PATH", "data/app.db")
     faiss_index_path: str = getenv("FAISS_INDEX_PATH", "data/faiss/vacancies.index")
 
     use_mock_llm: bool = getenv("USE_MOCK_LLM", "true").lower() == "true"
     use_mock_embeddings: bool = getenv("USE_MOCK_EMBEDDINGS", "true").lower() == "true"
+    preload_models_on_startup: bool = getenv("PRELOAD_MODELS_ON_STARTUP", "true").lower() == "true"
 
 
 settings = Settings()

@@ -47,6 +47,9 @@ def build_container() -> Container:
     vacancy_service = VacancyService(settings.sqlite_path)
     parser_service = ParserService(settings.sqlite_path)
     llm_service = LLMService()
+    if settings.preload_models_on_startup:
+        embedding_service.warmup()
+        llm_service.warmup()
     fsm = InterviewFSM()
     return Container(
         user_repo=user_repo,
@@ -65,4 +68,3 @@ def build_container() -> Container:
 
 
 container = build_container()
-
