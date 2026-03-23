@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from html import escape
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -80,13 +82,19 @@ async def perform_match(update: Update, context: ContextTypes.DEFAULT_TYPE) -> N
         if v.salary_from or v.salary_to:
             salary = f"💰 от {v.salary_from or '—'} до {v.salary_to or '—'} ₽\n"
         body = (
-            f"{i}. {v.title} — {v.company}\n"
-            f"📍 {v.location or '—'} · совпадение {round(rec.score, 3)}\n"
+            f"{i}. {escape(v.title)} — {escape(v.company)}\n"
+            f"📍 {escape(v.location or '—')} · совпадение {round(rec.score, 3)}\n"
             f"{salary}"
             f"{reasons}\n\n"
-            f"Описание: {preview or '—'}"
+            f"Описание: {escape(preview or '—')}\n"
+            f"🔗 <a href=\"{escape(v.url, quote=True)}\">Открыть вакансию</a>"
         )
-        await msg.reply_text(body, reply_markup=vacancy_card_keyboard(v.id, v.url))
+        await msg.reply_text(
+            body,
+            parse_mode="HTML",
+            disable_web_page_preview=True,
+            reply_markup=vacancy_card_keyboard(v.id, v.url),
+        )
 
 
 async def handle_resume(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
