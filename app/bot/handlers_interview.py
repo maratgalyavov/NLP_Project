@@ -24,9 +24,17 @@ IX_FORMAT = 5
 IX_EMPLOYMENT = 6
 
 
+def _user_data_map(context: ContextTypes.DEFAULT_TYPE) -> dict:
+    user_data = context.user_data
+    if user_data is None:
+        return {}
+    return user_data
+
+
 def _reset_skill_draft(context: ContextTypes.DEFAULT_TYPE) -> None:
-    context.user_data.pop("iv_skills", None)
-    context.user_data.pop("skill_extra", None)
+    user_data = _user_data_map(context)
+    user_data.pop("iv_skills", None)
+    user_data.pop("skill_extra", None)
 
 
 async def send_next_question_prompt(
@@ -42,8 +50,9 @@ async def send_next_question_prompt(
 
     if next_q_idx == IX_SKILLS:
         _reset_skill_draft(context)
-        context.user_data["iv_skills"] = set()
-        context.user_data["skill_extra"] = ""
+        user_data = _user_data_map(context)
+        user_data["iv_skills"] = set()
+        user_data["skill_extra"] = ""
         await chat.send_message(
             skills_question_caption(text),
             reply_markup=skills_keyboard(set()),
@@ -157,16 +166,17 @@ async def submit_interview_answer(
     q_idx = state.question_index
 
     # Вопрос про навыки: если уже есть выбор кнопками или доп. текст — дописываем; иначе весь текст = ответ
-    if q_idx == IX_SKILLS and context.user_data.get("iv_skills") is not None:
-        skills = context.user_data.get("iv_skills") or set()
-        extra_prev = (context.user_data.get("skill_extra") or "").strip()
+    user_data = _user_data_map(context)
+    if q_idx == IX_SKILLS and user_data.get("iv_skills") is not None:
+        skills = user_data.get("iv_skills") or set()
+        extra_prev = (user_data.get("skill_extra") or "").strip()
         if len(skills) == 0 and not extra_prev:
             pass
         else:
             if extra_prev:
-                context.user_data["skill_extra"] = f"{extra_prev}, {answer_text}"
+                user_data["skill_extra"] = f"{extra_prev}, {answer_text}"
             else:
-                context.user_data["skill_extra"] = answer_text
+                user_data["skill_extra"] = answer_text
             await msg.reply_text(
                 "✅ Добавил к ответу. Нажми «✔️ Готово» на кнопках под вопросом или допиши ещё текстом.",
             )

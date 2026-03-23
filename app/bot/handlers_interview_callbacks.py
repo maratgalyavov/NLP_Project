@@ -24,6 +24,13 @@ from app.bot.interview_keyboards import (
 logger = logging.getLogger(__name__)
 
 
+def _user_data_map(context: ContextTypes.DEFAULT_TYPE) -> dict:
+    user_data = context.user_data
+    if user_data is None:
+        return {}
+    return user_data
+
+
 async def handle_interview_callback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     query = update.callback_query
     if query is None or not query.data or not query.from_user:
@@ -56,7 +63,8 @@ async def handle_interview_callback(update: Update, context: ContextTypes.DEFAUL
             if code not in SKILL_CODES:
                 await query.answer()
                 return
-            sel = context.user_data.setdefault("iv_skills", set())
+            user_data = _user_data_map(context)
+            sel = user_data.setdefault("iv_skills", set())
             if code in sel:
                 sel.remove(code)
             else:
@@ -70,8 +78,9 @@ async def handle_interview_callback(update: Update, context: ContextTypes.DEFAUL
             return
 
         if parts[2] == "done":
-            sel = context.user_data.get("iv_skills") or set()
-            extra = (context.user_data.get("skill_extra") or "").strip()
+            user_data = _user_data_map(context)
+            sel = user_data.get("iv_skills") or set()
+            extra = (user_data.get("skill_extra") or "").strip()
             labels = [SKILL_CODES[c] for c in sorted(sel, key=lambda x: SKILL_CODES[x])]
             if extra:
                 labels.append(extra)
