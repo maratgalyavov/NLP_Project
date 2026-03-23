@@ -4,18 +4,20 @@ Parse IT vacancies from hh.ru HTML (search + vacancy pages).
 
 from __future__ import annotations
 
+import logging
 import re
 import time
 from dataclasses import dataclass
 from datetime import date, datetime
 from html import unescape
-from typing import Any
+from typing import Any, Callable
 from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
 
 BASE = "https://hh.ru"
+logger = logging.getLogger(__name__)
 
 DEFAULT_QUERIES = [
     "Python developer",
@@ -23,19 +25,38 @@ DEFAULT_QUERIES = [
     "Python engineer",
     "Java developer",
     "Java backend developer",
+    "Golang developer",
+    "Go developer",
+    "C# developer",
+    ".NET developer",
+    "PHP developer",
     "Backend developer",
     "backend engineer",
+    "Frontend developer",
+    "React developer",
+    "JavaScript developer",
+    "TypeScript developer",
+    "Fullstack developer",
+    "Mobile developer",
+    "Android developer",
+    "iOS developer",
+    "Flutter developer",
     "data engineer",
     "аналитик данных",
     "data analyst",
     "системный аналитик",
     "business analyst",
+    "product analyst",
+    "BI analyst",
     "QA engineer",
     "тестировщик",
     "DevOps",
     "SRE",
     "ML engineer",
     "data scientist",
+    "machine learning engineer",
+    "product manager",
+    "project manager IT",
 ]
 
 HEADERS = {
@@ -326,6 +347,32 @@ def _parse_iso_date(s: str | None) -> date | None:
         return None
 
 
+def _interleave_listing_batches(
+    batches_by_query: dict[str, list[ListingItem]],
+    max_vacancies: int | None,
+) -> list[ListingItem]:
+    if not batches_by_query:
+        return []
+
+    ordered_queries = [query for query, batch in batches_by_query.items() if batch]
+    listing_order: list[ListingItem] = []
+    idx = 0
+    while ordered_queries:
+        query = ordered_queries[idx]
+        batch = batches_by_query[query]
+        listing_order.append(batch.pop(0))
+        if max_vacancies is not None and len(listing_order) >= max_vacancies:
+            break
+        if not batch:
+            ordered_queries.pop(idx)
+            if not ordered_queries:
+                break
+            idx %= len(ordered_queries)
+            continue
+        idx = (idx + 1) % len(ordered_queries)
+    return listing_order
+
+
 def run(
     queries: list[str],
     area: str,
@@ -337,10 +384,12 @@ def run(
     search_period: int | None = None,
     posted_since: date | None = None,
     skip_if_no_posted_date: bool = False,
+    progress_callback: Callable[[dict[str, Any]], None] | None = None,
 ) -> list[dict[str, Any]]:
     sess = _session()
     seen: set[str] = set()
-    listing_order: list[ListingItem] = []
+    listings_by_query: dict[str, list[ListingItem]] = {query: [] for query in queries}
+    collected = 0
 
     for q in queries:
         for page in range(pages_per_query):
@@ -359,11 +408,34 @@ def run(
                 if it.vacancy_id in seen:
                     continue
                 seen.add(it.vacancy_id)
-                listing_order.append(it)
+                listings_by_query[q].append(it)
+                collected += 1
+                if max_vacancies is not None and collected >= max_vacancies:
+                    break
+            if max_vacancies is not None and collected >= max_vacancies:
+                break
             time.sleep(delay)
+        if max_vacancies is not None and collected >= max_vacancies:
+            break
 
-    if max_vacancies is not None:
-        listing_order = listing_order[: max_vacancies]
+    listing_order = _interleave_listing_batches(listings_by_query, max_vacancies)
+
+    logger.info(
+        "HH parser collected %s listings before detail fetch (queries=%s, pages_per_query=%s, max_vacancies=%s)",
+        len(listing_order),
+        len(queries),
+        pages_per_query,
+        max_vacancies,
+    )
+    if progress_callback is not None:
+        progress_callback(
+            {
+                "stage": "details",
+                "listings_collected": len(listing_order),
+                "details_total": len(listing_order),
+                "details_processed": 0,
+            }
+        )
 
     results: list[dict[str, Any]] = []
     for _idx, item in enumerate(listing_order, start=1):
@@ -383,10 +455,36 @@ def run(
                 continue
 
         results.append({"id": f"vac_{int(item.vacancy_id)}", **detail})
+        if _idx % 25 == 0 or _idx == len(listing_order):
+            logger.info(
+                "HH parser processed detail pages: %s/%s",
+                _idx,
+                len(listing_order),
+            )
+            if progress_callback is not None:
+                progress_callback(
+                    {
+                        "stage": "details",
+                        "listings_collected": len(listing_order),
+                        "details_total": len(listing_order),
+                        "details_processed": _idx,
+                    }
+                )
 
     results.sort(
         key=lambda r: (_parse_iso_date(r.get("posted_date")) or date.min),
         reverse=True,
     )
+
+    if progress_callback is not None:
+        progress_callback(
+            {
+                "stage": "completed",
+                "listings_collected": len(listing_order),
+                "details_total": len(listing_order),
+                "details_processed": len(listing_order),
+                "results_total": len(results),
+            }
+        )
 
     return results

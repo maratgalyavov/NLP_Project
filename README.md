@@ -242,6 +242,7 @@ The default parser setup now:
 - loads up to 100 vacancies per search page
 - scans multiple pages per query instead of only one
 - refreshes existing vacancies on conflict instead of silently skipping updates
+- caps the default full run so it finishes in reasonable time instead of trying to fetch thousands of detail pages
 
 Then rebuild index:
 

@@ -40,12 +40,12 @@ class Settings:
     sqlite_path: str = getenv("SQLITE_PATH", "data/app.db")
     faiss_index_path: str = getenv("FAISS_INDEX_PATH", "data/faiss/vacancies.index")
     parser_area: str = getenv("PARSER_AREA", "113")
-    parser_pages_per_query: int = int(getenv("PARSER_PAGES_PER_QUERY", "5"))
-    parser_daily_pages_per_query: int = int(getenv("PARSER_DAILY_PAGES_PER_QUERY", "10"))
-    parser_search_period_days: int = int(getenv("PARSER_SEARCH_PERIOD_DAYS", "30"))
-    parser_daily_search_period_days: int = int(getenv("PARSER_DAILY_SEARCH_PERIOD_DAYS", "3"))
-    parser_delay_seconds: float = float(getenv("PARSER_DELAY_SECONDS", "0.35"))
-    parser_max_vacancies: int = int(getenv("PARSER_MAX_VACANCIES", "0"))
+    parser_pages_per_query: int = int(getenv("PARSER_PAGES_PER_QUERY", "2"))
+    parser_daily_pages_per_query: int = int(getenv("PARSER_DAILY_PAGES_PER_QUERY", "3"))
+    parser_search_period_days: int = int(getenv("PARSER_SEARCH_PERIOD_DAYS", "14"))
+    parser_daily_search_period_days: int = int(getenv("PARSER_DAILY_SEARCH_PERIOD_DAYS", "2"))
+    parser_delay_seconds: float = float(getenv("PARSER_DELAY_SECONDS", "0.2"))
+    parser_max_vacancies: int = int(getenv("PARSER_MAX_VACANCIES", "180"))
     parser_queries_raw: str = getenv("PARSER_QUERIES", "")
 
     use_mock_llm: bool = getenv("USE_MOCK_LLM", "true").lower() == "true"

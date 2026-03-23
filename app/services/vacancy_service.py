@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from typing import Optional
 
 from app.domain.models import Vacancy
@@ -10,6 +11,11 @@ from app.storage.db import get_connection
 class VacancyService:
     def __init__(self, db_path: str) -> None:
         self.db_path = db_path
+
+    @staticmethod
+    def _safe_posted_date(vacancy: dict) -> str:
+        posted_date = str(vacancy.get("posted_date") or "").strip()
+        return posted_date or date.today().isoformat()
 
     def load_vacancies(self) -> list[Vacancy]:
         with get_connection(self.db_path) as conn:
@@ -53,7 +59,7 @@ class VacancyService:
                         vac["description"],
                         vac.get("salary_from"),
                         vac.get("salary_to"),
-                        vac["posted_date"],
+                        self._safe_posted_date(vac),
                         json.dumps(vac.get("skills", []), ensure_ascii=False),
                         vac["active_flg"],
                     ),
