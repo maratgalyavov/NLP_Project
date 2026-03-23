@@ -6,3 +6,7 @@ target-version = "py39"
 select = ["E", "F", "I", "B"]
 ignore = ["E501"]
 
+[tool.ruff.lint.per-file-ignores]
+# Standalone script: project root must be on sys.path before importing `app`.
+"scripts/build_index.py" = ["E402"]
+
